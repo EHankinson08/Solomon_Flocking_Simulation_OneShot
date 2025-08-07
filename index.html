@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boids Flocking Simulation - Solomon AGI</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        
+        canvas {
+            display: block;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        #controls label {
+            display: inline-block;
+            width: 150px;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        
+        input[type="range"] {
+            width: 200px;
+            margin: 0 10px;
+        }
+        
+        input[type="color"] {
+            width: 50px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        #fps {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            backdrop-filter: blur(10px);
+        }
+        
+        #stats {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+        }
+        
+        .value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="controls">
+        <h3 style="margin-top: 0;">Flocking Controls</h3>
+        <label>Number of Boids:</label>
+        <input type="range" min="10" max="500" value="100" id="numBoids">
+        <span id="numBoidsValue" class="value">100</span><br>
+        
+        <label>Speed:</label>
+        <input type="range" min="0.1" max="5" step="0.1" value="2" id="speed">
+        <span id="speedValue" class="value">2</span><br>
+        
+        <label>Separation Force:</label>
+        <input type="range" min="0" max="10" step="0.1" value="1.5" id="separationForce">
+        <span id="separationForceValue" class="value">1.5</span><br>
+        
+        <label>Alignment Force:</label>
+        <input type="range" min="0" max="10" step="0.1" value="1" id="alignmentForce">
+        <span id="alignmentForceValue" class="value">1</span><br>
+        
+        <label>Cohesion Force:</label>
+        <input type="range" min="0" max="10" step="0.1" value="1" id="cohesionForce">
+        <span id="cohesionForceValue" class="value">1</span><br>
+        
+        <label>Perception Radius:</label>
+        <input type="range" min="10" max="200" value="50" id="perceptionRadius">
+        <span id="perceptionRadiusValue" class="value">50</span><br>
+        
+        <label>Trail Length:</label>
+        <input type="range" min="0" max="100" value="20" id="trailLength">
+        <span id="trailLengthValue" class="value">20</span><br>
+        
+        <label>Flock Color:</label>
+        <input type="color" value="#00ff88" id="flockColor"><br>
+        
+        <div style="margin-top: 10px;">
+            <button id="pauseResume">Pause</button>
+            <button id="reset">Reset</button>
+            <button id="addObstacle">Add Obstacle</button>
+            <button id="toggleVisualRange">Toggle Visual Range</button>
+        </div>
+        
+        <label style="margin-top: 10px;">
+            <input type="checkbox" id="dayNightCycle" checked> Day/Night Cycle
+        </label><br>
+        
+        <label>
+            <input type="checkbox" id="windEnabled"> Wind Simulation
+        </label><br>
+        
+        <label>
+            <input type="checkbox" id="predatorMode"> Predator Mode (Click)
+        </label>
+    </div>
+    
+    <div id="fps">FPS: <span class="value">0</span></div>
+    
+    <div id="stats">
+        <div>Average Speed: <span id="avgSpeed" class="value">0</span></div>
+        <div>Cohesion Score: <span id="cohesionScore" class="value">0</span></div>
+        <div>Obstacles: <span id="obstacleCount" class="value">0</span></div>
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        // Controls
+        const numBoidsInput = document.getElementById('numBoids');
+        const speedInput = document.getElementById('speed');
+        const separationForceInput = document.getElementById('separationForce');
+        const alignmentForceInput = document.getElementById('alignmentForce');
+        const cohesionForceInput = document.getElementById('cohesionForce');
+        const perceptionRadiusInput = document.getElementById('perceptionRadius');
+        const trailLengthInput = document.getElementById('trailLength');
+        const flockColorInput = document.getElementById('flockColor');
+        const pauseResumeButton = document.getElementById('pauseResume');
+        const resetButton = document.getElementById('reset');
+        const addObstacleButton = document.getElementById('addObstacle');
+        const toggleVisualRangeButton = document.getElementById('toggleVisualRange');
+        const dayNightCycleCheckbox = document.getElementById('dayNightCycle');
+        const windEnabledCheckbox = document.getElementById('windEnabled');
+        const predatorModeCheckbox = document.getElementById('predatorMode');
+        
+        // Values
+        let numBoidsValue = parseInt(numBoidsInput.value);
+        let speedValue = parseFloat(speedInput.value);
+        let separationForceValue = parseFloat(separationForceInput.value);
+        let alignmentForceValue = parseFloat(alignmentForceInput.value);
+        let cohesionForceValue = parseFloat(cohesionForceInput.value);
+        let perceptionRadiusValue = parseInt(perceptionRadiusInput.value);
+        let trailLengthValue = parseInt(trailLengthInput.value);
+        let flockColorValue = flockColorInput.value;
+        let paused = false;
+        let visualRangeVisible = false;
+        let dayNightCycle = true;
+        let windEnabled = false;
+        let predatorMode = false;
+        
+        const boids = [];
+        const obstacles = [];
+        const particles = [];
+        let wind = { x: 0, y: 0 };
+        let time = 0;
+        
+        // Vector class for physics calculations
+        class Vector {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+            
+            add(v) {
+                this.x += v.x;
+                this.y += v.y;
+                return this;
+            }
+            
+            subtract(v) {
+                const result = new Vector(this.x - v.x, this.y - v.y);
+                return result;
+            }
+            
+            multiply(scalar) {
+                this.x *= scalar;
+                this.y *= scalar;
+                return this;
+            }
+            
+            divide(scalar) {
+                if (scalar !== 0) {
+                    this.x /= scalar;
+                    this.y /= scalar;
+                }
+                return this;
+            }
+            
+            normalize() {
+                const mag = this.magnitude();
+                if (mag > 0) {
+                    this.divide(mag);
+                }
+                return this;
+            }
+            
+            magnitude() {
+                return Math.sqrt(this.x * this.x + this.y * this.y);
+            }
+            
+            limit(max) {
+                const mag = this.magnitude();
+                if (mag > max) {
+                    this.normalize();
+                    this.multiply(max);
+                }
+                return this;
+            }
+            
+            copy() {
+                return new Vector(this.x, this.y);
+            }
+            
+            static distance(v1, v2) {
+                return Math.sqrt((v1.x - v2.x) ** 2 + (v1.y - v2.y) ** 2);
+            }
+        }
+        
+        // Particle class for effects
+        class Particle {
+            constructor(x, y, color) {
+                this.position = new Vector(x, y);
+                this.velocity = new Vector((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2);
+                this.life = 1.0;
+                this.decay = 0.02;
+                this.color = color;
+            }
+            
+            update() {
+                this.position.add(this.velocity);
+                this.life -= this.decay;
+            }
+            
+            render() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.position.x, this.position.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            isDead() {
+                return this.life <= 0;
+            }
+        }
+        
+        // Boid class
+        class Boid {
+            constructor(x, y) {
+                this.position = new Vector(x, y);
+                this.velocity = new Vector((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2);
+                this.acceleration = new Vector(0, 0);
+                this.maxSpeed = speedValue;
+                this.maxForce = 0.05;
+                this.trail = [];
+                this.size = 5 + Math.random() * 3; // Depth variation
+                this.hue = Math.random() * 30 - 15; // Color variation
+            }
+            
+            update() {
+                this.velocity.add(this.acceleration);
+                this.velocity.limit(this.maxSpeed);
+                this.position.add(this.velocity);
+                this.acceleration.multiply(0);
+                
+                // Update trail
+                if (this.trail.length >= trailLengthValue) {
+                    this.trail.shift();
+                }
+                if (trailLengthValue > 0) {
+                    this.trail.push(this.position.copy());
+                }
+                
+                // Edge wrapping
+                if (this.position.x < 0) this.position.x = canvas.width;
+                if (this.position.x > canvas.width) this.position.x = 0;
+                if (this.position.y < 0) this.position.y = canvas.height;
+                if (this.position.y > canvas.height) this.position.y = 0;
+            }
+            
+            applyBehaviors(boids, obstacles) {
+                const separation = this.separate(boids);
+                const alignment = this.align(boids);
+                const cohesion = this.cohere(boids);
+                const obstacleAvoidance = this.avoidObstacles(obstacles);
+                
+                separation.multiply(separationForceValue);
+                alignment.multiply(alignmentForceValue);
+                cohesion.multiply(cohesionForceValue);
+                obstacleAvoidance.multiply(2);
+                
+                this.applyForce(separation);
+                this.applyForce(alignment);
+                this.applyForce(cohesion);
+                this.applyForce(obstacleAvoidance);
+                
+                // Apply wind
+                if (windEnabled) {
+                    this.applyForce(new Vector(wind.x * 0.001, wind.y * 0.001));
+                }
+            }
+            
+            separate(boids) {
+                let steer = new Vector(0, 0);
+                let count = 0;
+                
+                for (const other of boids) {
+                    const d = Vector.distance(this.position, other.position);
+                    if (other !== this && d > 0 && d < 25) {
+                        const diff = this.position.copy().subtract(other.position);
+                        diff.normalize();
+                        diff.divide(d); // Weight by distance
+                        steer.add(diff);
+                        count++;
+                    }
+                }
+                
+                if (count > 0) {
+                    steer.divide(count);
+                    steer.normalize();
+                    steer.multiply(this.maxSpeed);
+                    steer = steer.subtract(this.velocity);
+                    steer.limit(this.maxForce);
+                }
+                
+                return steer;
+            }
+            
+            align(boids) {
+                let sum = new Vector(0, 0);
+                let count = 0;
+                
+                for (const other of boids) {
+                    const d = Vector.distance(this.position, other.position);
+                    if (other !== this && d > 0 && d < perceptionRadiusValue) {
+                        sum.add(other.velocity);
+                        count++;
+                    }
+                }
+                
+                if (count > 0) {
+                    sum.divide(count);
+                    sum.normalize();
+                    sum.multiply(this.maxSpeed);
+                    const steer = sum.subtract(this.velocity);
+                    steer.limit(this.maxForce);
+                    return steer;
+                }
+                
+                return new Vector(0, 0);
+            }
+            
+            cohere(boids) {
+                let sum = new Vector(0, 0);
+                let count = 0;
+                
+                for (const other of boids) {
+                    const d = Vector.distance(this.position, other.position);
+                    if (other !== this && d > 0 && d < perceptionRadiusValue) {
+                        sum.add(other.position);
+                        count++;
+                    }
+                }
+                
+                if (count > 0) {
+                    sum.divide(count);
+                    return this.seek(sum);
+                }
+                
+                return new Vector(0, 0);
+            }
+            
+            seek(target) {
+                const desired = target.copy().subtract(this.position);
+                desired.normalize();
+                desired.multiply(this.maxSpeed);
+                const steer = desired.subtract(this.velocity);
+                steer.limit(this.maxForce);
+                return steer;
+            }
+            
+            avoidObstacles(obstacles) {
+                let steer = new Vector(0, 0);
+                
+                for (const obstacle of obstacles) {
+                    const d = Vector.distance(this.position, obstacle.position);
+                    if (d > 0 && d < obstacle.size + 50) {
+                        const diff = this.position.copy().subtract(obstacle.position);
+                        diff.normalize();
+                        diff.divide(d);
+                        steer.add(diff);
+                    }
+                }
+                
+                if (steer.magnitude() > 0) {
+                    steer.normalize();
+                    steer.multiply(this.maxSpeed);
+                    steer = steer.subtract(this.velocity);
+                    steer.limit(this.maxForce * 2);
+                }
+                
+                return steer;
+            }
+            
+            applyForce(force) {
+                this.acceleration.add(force);
+            }
+            
+            render() {
+                // Draw trail
+                if (this.trail.length > 1) {
+                    ctx.strokeStyle = flockColorValue + '33';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    ctx.stroke();
+                }
+                
+                // Draw boid with glow
+                ctx.save();
+                ctx.translate(this.position.x, this.position.y);
+                ctx.rotate(Math.atan2(this.velocity.y, this.velocity.x) + Math.PI / 2);
+                
+                // Glow effect
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 3);
+                gradient.addColorStop(0, flockColorValue + '88');
+                gradient.addColorStop(1, flockColorValue + '00');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size * 3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Draw triangular boid
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size);
+                ctx.lineTo(-this.size * 0.6, this.size * 0.6);
+                ctx.lineTo(this.size * 0.6, this.size * 0.6);
+                ctx.closePath();
+                ctx.fillStyle = flockColorValue;
+                ctx.fill();
+                
+                ctx.restore();
+                
+                // Visual range
+                if (visualRangeVisible) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.beginPath();
+                    ctx.arc(this.position.x, this.position.y, perceptionRadiusValue, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Initialize boids
+        function init() {
+            boids.length = 0;
+            for (let i = 0; i < numBoidsValue; i++) {
+                boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height));
+            }
+        }
+        
+        // Draw background with day/night cycle
+        function drawBackground() {
+            if (dayNightCycle) {
+                const hour = (time * 0.001) % 24;
+                const dayProgress = Math.sin((hour / 24) * Math.PI);
+                
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                
+                if (dayProgress > 0) {
+                    // Day
+                    const skyHue = 200 + dayProgress * 20;
+                    const skyLight = 50 + dayProgress * 30;
+                    gradient.addColorStop(0, `hsl(${skyHue}, 70%, ${skyLight}%)`);
+                    gradient.addColorStop(1, `hsl(${skyHue - 20}, 60%, ${skyLight - 20}%)`);
+                } else {
+                    // Night
+                    gradient.addColorStop(0, '#0a0a2e');
+                    gradient.addColorStop(1, '#1e1e3f');
+                }
+                
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Stars at night
+                if (dayProgress < 0.2) {
+                    ctx.fillStyle = 'white';
+                    for (let i = 0; i < 100; i++) {
+                        const x = (i * 73) % canvas.width;
+                        const y = (i * 37) % canvas.height;
+                        const size = Math.sin(time * 0.001 + i) * 0.5 + 1;
+                        ctx.beginPath();
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else {
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#1a1a2e');
+                gradient.addColorStop(1, '#0f0f1e');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+        
+        // Draw obstacles
+        function drawObstacles() {
+            for (const obstacle of obstacles) {
+                const gradient = ctx.createRadialGradient(
+                    obstacle.position.x, obstacle.position.y, 0,
+                    obstacle.position.x, obstacle.position.y, obstacle.size
+                );
+                gradient.addColorStop(0, '#ff4444');
+                gradient.addColorStop(0.7, '#aa2222');
+                gradient.addColorStop(1, '#551111');
+                
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(obstacle.position.x, obstacle.position.y, obstacle.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Obstacle glow
+                ctx.strokeStyle = '#ff444488';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+        
+        // Update wind
+        function updateWind() {
+            if (windEnabled) {
+                wind.x = Math.sin(time * 0.0005) * 50;
+                wind.y = Math.cos(time * 0.0007) * 30;
+            } else {
+                wind.x = 0;
+                wind.y = 0;
+            }
+        }
+        
+        // Calculate statistics
+        function updateStats() {
+            let totalSpeed = 0;
+            let centerX = 0;
+            let centerY = 0;
+            
+            for (const boid of boids) {
+                totalSpeed += boid.velocity.magnitude();
+                centerX += boid.position.x;
+                centerY += boid.position.y;
+            }
+            
+            const avgSpeed = totalSpeed / boids.length;
+            centerX /= boids.length;
+            centerY /= boids.length;
+            
+            let avgDistance = 0;
+            for (const boid of boids) {
+                avgDistance += Vector.distance(boid.position, new Vector(centerX, centerY));
+            }
+            avgDistance /= boids.length;
+            
+            const cohesionScore = Math.max(0, 100 - (avgDistance / 2));
+            
+            document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(2);
+            document.getElementById('cohesionScore').textContent = cohesionScore.toFixed(0) + '%';
+            document.getElementById('obstacleCount').textContent = obstacles.length;
+        }
+        
+        // Update particles
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
+                particle.update();
+                if (particle.isDead()) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+        
+        // Draw particles
+        function drawParticles() {
+            for (const particle of particles) {
+                particle.render();
+            }
+        }
+        
+        // Animation loop
+        let lastTime = 0;
+        let fps = 0;
+        let frameCount = 0;
+        let fpsTime = 0;
+        
+        function animate(currentTime) {
+            if (!paused) {
+                time = currentTime;
+                
+                // Calculate FPS
+                frameCount++;
+                if (currentTime > fpsTime + 1000) {
+                    fps = Math.round((frameCount * 1000) / (currentTime - fpsTime));
+                    fpsTime = currentTime;
+                    frameCount = 0;
+                    document.querySelector('#fps .value').textContent = fps;
+                }
+                
+                // Clear and draw
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                drawBackground();
+                
+                // Update systems
+                updateWind();
+                
+                // Update and draw boids
+                for (const boid of boids) {
+                    boid.applyBehaviors(boids, obstacles);
+                    boid.update();
+                }
+                
+                for (const boid of boids) {
+                    boid.render();
+                }
+                
+                // Draw other elements
+                drawObstacles();
+                updateParticles();
+                drawParticles();
+                
+                // Update stats every 10 frames
+                if (frameCount % 10 === 0) {
+                    updateStats();
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // Event listeners
+        numBoidsInput.addEventListener('input', () => {
+            numBoidsValue = parseInt(numBoidsInput.value);
+            document.getElementById('numBoidsValue').textContent = numBoidsValue;
+            
+            // Add or remove boids
+            while (boids.length < numBoidsValue) {
+                boids.push(new Boid(Math.random() * canvas.width, Math.random() * canvas.height));
+            }
+            while (boids.length > numBoidsValue) {
+                boids.pop();
+            }
+        });
+        
+        speedInput.addEventListener('input', () => {
+            speedValue = parseFloat(speedInput.value);
+            document.getElementById('speedValue').textContent = speedValue;
+            for (const boid of boids) {
+                boid.maxSpeed = speedValue;
+            }
+        });
+        
+        separationForceInput.addEventListener('input', () => {
+            separationForceValue = parseFloat(separationForceInput.value);
+            document.getElementById('separationForceValue').textContent = separationForceValue;
+        });
+        
+        alignmentForceInput.addEventListener('input', () => {
+            alignmentForceValue = parseFloat(alignmentForceInput.value);
+            document.getElementById('alignmentForceValue').textContent = alignmentForceValue;
+        });
+        
+        cohesionForceInput.addEventListener('input', () => {
+            cohesionForceValue = parseFloat(cohesionForceInput.value);
+            document.getElementById('cohesionForceValue').textContent = cohesionForceValue;
+        });
+        
+        perceptionRadiusInput.addEventListener('input', () => {
+            perceptionRadiusValue = parseInt(perceptionRadiusInput.value);
+            document.getElementById('perceptionRadiusValue').textContent = perceptionRadiusValue;
+        });
+        
+        trailLengthInput.addEventListener('input', () => {
+            trailLengthValue = parseInt(trailLengthInput.value);
+            document.getElementById('trailLengthValue').textContent = trailLengthValue;
+        });
+        
+        flockColorInput.addEventListener('input', () => {
+            flockColorValue = flockColorInput.value;
+        });
+        
+        pauseResumeButton.addEventListener('click', () => {
+            paused = !paused;
+            pauseResumeButton.textContent = paused ? 'Resume' : 'Pause';
+        });
+        
+        resetButton.addEventListener('click', () => {
+            init();
+            obstacles.length = 0;
+            particles.length = 0;
+        });
+        
+        addObstacleButton.addEventListener('click', () => {
+            const x = Math.random() * canvas.width;
+            const y = Math.random() * canvas.height;
+            obstacles.push({
+                position: new Vector(x, y),
+                size: 20 + Math.random() * 30
+            });
+        });
+        
+        toggleVisualRangeButton.addEventListener('click', () => {
+            visualRangeVisible = !visualRangeVisible;
+        });
+        
+        dayNightCycleCheckbox.addEventListener('change', () => {
+            dayNightCycle = dayNightCycleCheckbox.checked;
+        });
+        
+        windEnabledCheckbox.addEventListener('change', () => {
+            windEnabled = windEnabledCheckbox.checked;
+        });
+        
+        predatorModeCheckbox.addEventListener('change', () => {
+            predatorMode = predatorModeCheckbox.checked;
+        });
+        
+        // Canvas click handler
+        canvas.addEventListener('click', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            if (predatorMode) {
+                // Scatter boids and create particles
+                for (const boid of boids) {
+                    const d = Vector.distance(boid.position, new Vector(x, y));
+                    if (d < 100) {
+                        const away = boid.position.copy().subtract(new Vector(x, y));
+                        away.normalize();
+                        away.multiply(5);
+                        boid.velocity.add(away);
+                        
+                        // Create particles
+                        for (let i = 0; i < 3; i++) {
+                            particles.push(new Particle(boid.position.x, boid.position.y, flockColorValue));
+                        }
+                    }
+                }
+            } else if (event.shiftKey) {
+                // Add obstacle
+                obstacles.push({
+                    position: new Vector(x, y),
+                    size: 30
+                });
+            }
+        });
+        
+        // Handle resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+        
+        // Initialize and start
+        init();
+        animate(0);
+    </script>
+</body>
+</html> 
