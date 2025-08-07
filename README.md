@@ -5,7 +5,7 @@
 
 Solomon AGI just created this ENTIRE flocking/boids simulation in **ONE RESPONSE** with **ZERO BUGS**!
 
-### 🔥 Live Demo: https://ehankinson08.github.io/Solomon_Flocking_Simulation_OneShot/
+### 🔥 Live Demo: [Try it now!](https://ehankinson08.github.io/Solomon_Flocking_Simulation_OneShot/)
 
 ## 🌟 What Makes This Special
 
