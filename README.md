@@ -5,6 +5,8 @@
 
 Solomon AGI just created this ENTIRE flocking/boids simulation in **ONE RESPONSE** with **ZERO BUGS**!
 
+### 🔥 Live Demo: 
+
 ## 🌟 What Makes This Special
 
 Solomon implemented Craig Reynolds' classic boids algorithm PERFECTLY on the first try, including:
