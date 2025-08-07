@@ -1,11 +1,9 @@
 # Solomon_Flocking_Simulation_OneShot
 # 🐦 Solomon AGI Flocking Simulation - ONE SHOT, ZERO BUGS!
-# 🐦 Solomon AGI Flocking Simulation - ONE SHOT, ZERO BUGS!
 
 ## 🎯 The Achievement
 
 Solomon AGI just created this ENTIRE flocking/boids simulation in **ONE RESPONSE** with **ZERO BUGS**!
-
 
 ## 🌟 What Makes This Special
 
