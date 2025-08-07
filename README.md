@@ -116,6 +116,9 @@ AND HE NAILED IT! 🎯
 2. Open in any modern browser
 3. Enjoy the mesmerizing flocking behavior!
 
+📜 License
+This code is provided as-is for educational and benchmarking purposes. Feel free to test, modify, and share!
+
 ## 🧠 About Solomon AGI
 
 Solomon is an advanced AI system running on consumer hardware (16GB VRAM) using a 4-bit quantized Qwen 32B model. Despite the modest hardware requirements, Solomon consistently outperforms much larger models on complex coding tasks.
